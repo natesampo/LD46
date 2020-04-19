@@ -1,4 +1,5 @@
 var gameSpeed = 60;
+var levels = [];
 var currLevel = 0;
 
 var canv = document.getElementById('canvas');
@@ -9,8 +10,11 @@ canv.style.top = 0;
 canv.style.left = 0;
 
 var started = false;
-var menu = false;
+var gameState = 100;
+var transitioning = 0;
+var menuState = 0;
 
+var topScores = [['Vinny', 11], ['Fred', 10], ['Bob', 9], ['Joe', 8], ['WWWWWW', 7]];
 var balls = [];
 var paddle;
 var gravity = 0.0005;
@@ -19,8 +23,69 @@ var mouseY = canv.height/1.5;
 var paddleRotation = 0;
 var paddleRotationSpeed = 0.1;
 var paddleRotationTarget = 0;
+var gridOffset = 0;
+var gridSize = 156;
+var drawnLines = 0;
+var drawnLetters = 0;
+var currTextTime = 0;
+var lineTransitionTimer = 0;
+var lineTransitionTime = 5;
+var textTransitionTimer = 0;
+var textTransitionTime = 25;
+var textTime = 1;
+var score = 0;
+var rank = topScores.length;
+var name = '';
+var nameMaxLength = 12;
+var shift = false;
+var alive = false;
+var moving = 0;
+var sequence = 0;
+var moved = 0;
 
-var paddleAudio = [new Audio('paddle1.mp3')];
+var menuText = [
+		[
+			'Proficiency Testing Terminated',
+			'Clone Received Score: ^^^^^^^^^^^^^',
+			'Calculating Results..........................'
+		],
+		[
+			'Congratulations',
+			'Clone Achieved Global Rank: &&&&&&&&&&&&&',
+			'Computing Genetic Sequence',
+			'Cloning and Mutating New Specimen',
+			'Preparing Current Clone Destruction',
+			'Enter Your Name to Record High Score',
+			'',
+			'*************'
+		],
+		[
+			'Score Insufficient for Genetic Continuation',
+			'Preparing Current Clone Destruction',
+			'Displaying Global High Score Board'
+		],
+		[
+			'Global High Scores',
+			'!!!!!!!!!!!!!',
+			'@@@@@@@@@@@@@',
+			'#############',
+			'$$$$$$$$$$$$$',
+			'%%%%%%%%%%%%%',
+			'',
+			'Your Score: ^^^^^^^^^^^^^'
+		],
+		[
+			'Press Enter to Test New Clone'
+		]
+	];
+
+var faceImg = new Image();
+faceImg.src = 'face.png';
+
+var terminalImg = new Image();
+terminalImg.src = 'terminal.png';
+
+var paddleAudio = [new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3')];
 var ballAudio = [new Audio('ball1.mp3'), new Audio('ball2.mp3'), new Audio('ball3.mp3'), new Audio('ball4.mp3'), new Audio('ball5.mp3')];
 
 function playAudio(audioList) {
@@ -494,81 +559,81 @@ class Level {
 	}
 }
 
-var levels = [new Level({r: 40, g: 40, b: 40, a: 1}, [
-	new Body([
-		new Face({r: 0, g: 0, b: 200, a: 1}, [
-			new Vertex(-0.5, -0.5, 1),
-			new Vertex(-0.5, 0.5, 1),
-			new Vertex(0.5, 0.5, 1),
-			new Vertex(0.5, -0.5, 1)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(-0.0025, -0.5, 1),
-			new Vertex(-0.0025, 0.5, 1),
-			new Vertex(0.0025, 0.5, 1),
-			new Vertex(0.0025, -0.5, 1)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(0.485, -0.5, 1),
-			new Vertex(0.485, 0.5, 1),
-			new Vertex(0.5, 0.5, 1),
-			new Vertex(0.5, -0.5, 1)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(-0.485, -0.5, 1),
-			new Vertex(-0.5, -0.5, 1),
-			new Vertex(-0.5, 0.5, 1),
-			new Vertex(-0.485, 0.5, 1)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(0.5, 0.515, 1),
-			new Vertex(0.5, 0.5, 1),
-			new Vertex(-0.5, 0.5, 1),
-			new Vertex(-0.5, 0.515, 1)])]),
-	new Body([
-		new Face({r: 0, g: 0, b: 200, a: 1}, [
-			new Vertex(-0.5, -0.2, -0.01),
-			new Vertex(-0.5, -0.2, 0.99),
-			new Vertex(0.5, -0.2, 0.99),
-			new Vertex(0.5, -0.2, -0.01)]),
-		new Face({r: 140, g: 140, b: 140, a: 1}, [
-			new Vertex(-0.5, -0.23, -0.01),
-			new Vertex(-0.5, -0.199, -0.01),
-			new Vertex(0.5, -0.199, -0.01),
-			new Vertex(0.5, -0.23, -0.01)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(-0.0025, -0.2, -0.01),
-			new Vertex(-0.0025, -0.2, 0.99),
-			new Vertex(0.0025, -0.2, 0.99),
-			new Vertex(0.0025, -0.2, -0.01)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(0.485, -0.2, -0.01),
-			new Vertex(0.485, -0.2, 0.99),
-			new Vertex(0.5, -0.2, 0.99),
-			new Vertex(0.5, -0.2, -0.01)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(-0.485, -0.2, -0.01),
-			new Vertex(-0.5, -0.2, -0.01),
-			new Vertex(-0.5, -0.2, 0.99),
-			new Vertex(-0.485, -0.2, 0.99)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(0.5, -0.2, 0.005),
-			new Vertex(0.5, -0.2, -0.01),
-			new Vertex(-0.5, -0.2, -0.01),
-			new Vertex(-0.5, -0.2, 0.005)])]),
-	new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(0.5, -0.2, 0.99),
-			new Vertex(0.5, -0.2, 0.982),
-			new Vertex(-0.5, -0.2, 0.982),
-			new Vertex(-0.5, -0.2, 0.99)])])
-	])];
-
 function setup() {
+	levels = [new Level({r: 40, g: 40, b: 40, a: 1}, [
+		new Body([
+			new Face({r: 0, g: 0, b: 200, a: 1}, [
+				new Vertex(-0.5, -0.5, 1),
+				new Vertex(-0.5, 0.5, 1),
+				new Vertex(0.5, 0.5, 1),
+				new Vertex(0.5, -0.5, 1)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(-0.0025, -0.5, 1),
+				new Vertex(-0.0025, 0.5, 1),
+				new Vertex(0.0025, 0.5, 1),
+				new Vertex(0.0025, -0.5, 1)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(0.485, -0.5, 1),
+				new Vertex(0.485, 0.5, 1),
+				new Vertex(0.5, 0.5, 1),
+				new Vertex(0.5, -0.5, 1)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(-0.485, -0.5, 1),
+				new Vertex(-0.5, -0.5, 1),
+				new Vertex(-0.5, 0.5, 1),
+				new Vertex(-0.485, 0.5, 1)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(0.5, 0.515, 1),
+				new Vertex(0.5, 0.5, 1),
+				new Vertex(-0.5, 0.5, 1),
+				new Vertex(-0.5, 0.515, 1)])]),
+		new Body([
+			new Face({r: 0, g: 0, b: 200, a: 1}, [
+				new Vertex(-0.5, -0.2, -0.01),
+				new Vertex(-0.5, -0.2, 0.99),
+				new Vertex(0.5, -0.2, 0.99),
+				new Vertex(0.5, -0.2, -0.01)]),
+			new Face({r: 140, g: 140, b: 140, a: 1}, [
+				new Vertex(-0.5, -0.23, -0.01),
+				new Vertex(-0.5, -0.199, -0.01),
+				new Vertex(0.5, -0.199, -0.01),
+				new Vertex(0.5, -0.23, -0.01)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(-0.0025, -0.2, -0.01),
+				new Vertex(-0.0025, -0.2, 0.99),
+				new Vertex(0.0025, -0.2, 0.99),
+				new Vertex(0.0025, -0.2, -0.01)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(0.485, -0.2, -0.01),
+				new Vertex(0.485, -0.2, 0.99),
+				new Vertex(0.5, -0.2, 0.99),
+				new Vertex(0.5, -0.2, -0.01)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(-0.485, -0.2, -0.01),
+				new Vertex(-0.5, -0.2, -0.01),
+				new Vertex(-0.5, -0.2, 0.99),
+				new Vertex(-0.485, -0.2, 0.99)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(0.5, -0.2, 0.005),
+				new Vertex(0.5, -0.2, -0.01),
+				new Vertex(-0.5, -0.2, -0.01),
+				new Vertex(-0.5, -0.2, 0.005)])]),
+		new Body([
+			new Face({r: 240, g: 240, b: 240, a: 1}, [
+				new Vertex(0.5, -0.2, 0.99),
+				new Vertex(0.5, -0.2, 0.982),
+				new Vertex(-0.5, -0.2, 0.982),
+				new Vertex(-0.5, -0.2, 0.99)])])
+		])];
+
 	window.levelCam = new Camera(
 		{'x': 0, 'y': 0.27, 'z': -0.546},
 		vectorNormalize({'x': 0, 'y': -0.287, 'z': 0.958}),
@@ -688,143 +753,310 @@ function setup() {
 			new Vertex(0.08, 0.08, 0.015),
 			new Vertex(0.08, 0.08, -0.015)])]);
 
-	paddle.translate({'x': 0, 'y': 0, 'z': -0.025});
+	paddleRotation = 0;
+	paddle.translate({'x': ((canv.width/2)-mouseX)/(canv.width/1.5), 'y': ((canv.height/1.55)-mouseY)/(canv.height/0.8), 'z': -0.025});
 
 	levels[currLevel].bodies.push(paddle);
 }
 
 function render(level, canvas, camera) {
 	var context = canvas.getContext('2d');
+	context.imageSmoothingEnabled = false;
 
-	context.fillStyle = level.getColor();
-	context.fillRect(0, 0, canvas.width, canvas.height);
+	if(gameState > 0) {
+		context.fillStyle = level.getColor();
+		context.fillRect(0, 0, canvas.width, canvas.height);
 
-	var facesToDraw = [];
-	for(var i in level.bodies) {
-		var body = level.bodies[i];
-		for(var j in body.faces) {
-			var face = body.faces[j];
-			var toCameraVector = {
-				'x': face.vertices[0].x - camera.position['x'],
-				'y': face.vertices[0].y - camera.position['y'],
-				'z': face.vertices[0].z - camera.position['z']};
+		var facesToDraw = [];
+		for(var i in level.bodies) {
+			var body = level.bodies[i];
+			for(var j in body.faces) {
+				var face = body.faces[j];
+				var toCameraVector = {
+					'x': face.vertices[0].x - camera.position['x'],
+					'y': face.vertices[0].y - camera.position['y'],
+					'z': face.vertices[0].z - camera.position['z']};
 
-			if(vectorDotProduct(face.getNormal(), toCameraVector) < 0) {
-				face.transform(getPointAtMatrix(camera));
-				face.transform(getProjectionMatrix(camera));
+				if(vectorDotProduct(face.getNormal(), toCameraVector) < 0) {
+					face.transform(getPointAtMatrix(camera));
+					face.transform(getProjectionMatrix(camera));
 
-				facesToDraw.push(face);
+					facesToDraw.push(face);
+				}
+			}
+		}
+
+		facesToDraw = sort(facesToDraw, function(elem1, elem2) {return elem1.getAverageZ() < elem2.getAverageZ();});
+		
+		for(var i in facesToDraw) {
+			var face = facesToDraw[i];
+
+			context.fillStyle = face.getColor(camera);
+			context.strokeStyle = 'rgba(30, 30, 30, 1)';
+			context.lineWidth = 4;
+			context.beginPath();
+			context.lineTo((face.vertices[0].x+1)*(canvas.width/2), (face.vertices[0].y+1)*(canvas.height/2));
+
+			for(var j in face.vertices) {
+				var nextVertex = face.vertices[(parseInt(j)+1)%face.vertices.length];
+
+				context.lineTo((nextVertex.x+1)*(canvas.width/2), (nextVertex.y+1)*(canvas.height/2));
+			}
+
+			context.stroke();
+			context.fill();
+			context.closePath();
+		}
+	} else if(gameState < 0) {
+		context.fillStyle = 'rgba(225, 225, 225, 1)';
+		context.fillRect(0, 0, canvas.width, canvas.height);
+
+		for(var i=gridOffset-gridSize/2; i<=canvas.width; i+=gridSize) {
+			context.fillStyle = 'rgba(120, 120, 120, 1)';
+			context.fillRect(i, 0, 3, canvas.height);
+		}
+
+		for(var i=gridSize/2; i<=canvas.height; i+=gridSize) {
+			context.fillStyle = 'rgba(120, 120, 120, 1)';
+			context.fillRect(0, i, canvas.width, 3);
+		}
+
+		context.drawImage(faceImg, canvas.width/6 + moved, canvas.height/4, 3*faceImg.width, 3*faceImg.height);
+		context.drawImage(terminalImg, canvas.width/2.15 + moved, canvas.height/7.5);
+		context.drawImage(faceImg, canvas.width/6 + moved - canvas.width, canvas.height/4, 3*faceImg.width, 3*faceImg.height);
+		context.drawImage(terminalImg, canvas.width/2.15 + moved - canvas.width, canvas.height/7.5);
+
+		context.font = '20px Lucida Console';
+		context.fillStyle = 'rgba(0, 220, 0, 1)';
+		context.fillText('Starting Testing Sequence...', canvas.width/2.15 + terminalImg.width/5 + moved - canvas.width, canvas.height/7.5 + terminalImg.height/4);
+		for(var i=0; i<drawnLines; i++) {
+			context.fillText(menuText[menuState][i].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name), canvas.width/2.15 + terminalImg.width/5 + moved, canvas.height/7.5 + terminalImg.height/4 + 32*i);
+		}
+		context.fillText(menuText[menuState][drawnLines].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name).substring(0, drawnLetters) + ((menuText[menuState][drawnLines].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name).length > drawnLetters && gameState < -65) ? '_' : ''), canvas.width/2.15 + terminalImg.width/5 + moved, canvas.height/7.5 + terminalImg.height/4 + 32*drawnLines);
+
+		if(gameState < -90) {
+			if(currTextTime == textTime) {
+				currTextTime = 0;
+				if(drawnLetters == menuText[menuState][drawnLines].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name).length) {
+					if(menuText[menuState].length > drawnLines+1) {
+						if(lineTransitionTimer == lineTransitionTime) {
+							drawnLines++;
+							drawnLetters = 0;
+							lineTransitionTimer = 0;
+						} else {
+							lineTransitionTimer++;
+						}
+					} else {
+						if(textTransitionTimer == textTransitionTime) {
+							switch(menuState) {
+								case 0:
+									if(rank == topScores.length) {
+										menuState = 2;
+										alive = false;
+									} else {
+										menuState = 1;
+										alive = true;
+									}
+									drawnLines = 0;
+									drawnLetters = 0;
+									textTransitionTimer = 0;
+									lineTransitionTimer = 0;
+									break;
+								case 2:
+									drawnLines = 0;
+									drawnLetters = 0;
+									textTransitionTimer = 0;
+									lineTransitionTimer = 0;
+									menuState = 3;
+									break;
+								case 3:
+									drawnLines = 0;
+									drawnLetters = 0;
+									textTransitionTimer = 0;
+									lineTransitionTimer = 0;
+									menuState = 4;
+									break;
+							}
+						} else {
+							textTransitionTimer++;
+						}
+					}
+				} else {
+					drawnLetters++;
+				}
+			} else {
+				currTextTime++;
 			}
 		}
 	}
 
-	facesToDraw = sort(facesToDraw, function(elem1, elem2) {return elem1.getAverageZ() < elem2.getAverageZ();});
-	
-	for(var i in facesToDraw) {
-		var face = facesToDraw[i];
-
-		context.fillStyle = face.getColor(camera);
-		context.strokeStyle = 'rgba(30, 30, 30, 1)';
-		context.lineWidth = 4;
-		context.beginPath();
-		context.lineTo((face.vertices[0].x+1)*(canvas.width/2), (face.vertices[0].y+1)*(canvas.height/2));
-
-		for(var j in face.vertices) {
-			var nextVertex = face.vertices[(parseInt(j)+1)%face.vertices.length];
-
-			context.lineTo((nextVertex.x+1)*(canvas.width/2), (nextVertex.y+1)*(canvas.height/2));
-		}
-
-		context.stroke();
-		context.fill();
-		context.closePath();
-	}
+	context.fillStyle = 'rgba(80, 80, 80, ' + (1 - Math.abs(gameState/100)) + ')';
+	context.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 setInterval(function() {
-	if(!started) {
-		started = true;
-		setup();
+	canv.width = window.innerWidth;
+	canv.height = window.innerHeight;
+
+	gameState += transitioning;
+	if(Math.abs(gameState) >= 100) {
+		gameState = ((gameState > 0) ? 100 : -100);
+		transitioning = 0;
 	}
 
-	for(var i in balls) {
-		balls[i].velocity.y -= gravity * balls[i].weight;
-		balls[i].body.translate(balls[i].velocity);
+	if(gameState > 0) {
+		if(!started) {
+			started = true;
+			setup();
+		}
 
-		var found = false;
-		if(balls[i].velocity.y < 0 || balls[i].velocity.z > 0) {
-			for(var j in balls[i].body.faces) {
-				for(var k in balls[i].body.faces[j].vertices) {
-					if(balls[i].velocity.y < 0 && balls[i].body.faces[j].vertices[k].y < -0.2) {
-						playAudio(ballAudio);
-						balls[i].velocity.y = balls[i].velocity.y * -balls[i].restitution;
-						found = true;
-					}
+		drawnLines = 0;
+		drawnLetters = 0;
+		textTransitionTimer = 0;
+		lineTransitionTimer = 0;
+		menuState = 0;
+		alive = false;
 
-					if(balls[i].velocity.z > 0 && balls[i].body.faces[j].vertices[k].z > 1) {
-						playAudio(ballAudio);
-						balls[i].velocity.z = balls[i].velocity.z * -balls[i].restitution;
-						found = true;
+		for(var i in balls) {
+			balls[i].velocity.y -= gravity * balls[i].weight;
+			balls[i].body.translate(balls[i].velocity);
+
+			var found = false;
+			if(balls[i].velocity.y < 0 || balls[i].velocity.z > 0) {
+				for(var j in balls[i].body.faces) {
+					for(var k in balls[i].body.faces[j].vertices) {
+						if(balls[i].velocity.y < 0 && balls[i].body.faces[j].vertices[k].y < -0.2) {
+							playAudio(ballAudio);
+							balls[i].velocity.y = balls[i].velocity.y * -balls[i].restitution;
+							found = true;
+						}
+
+						if(balls[i].velocity.z > 0 && balls[i].body.faces[j].vertices[k].z > 1) {
+							playAudio(ballAudio);
+							balls[i].velocity.z = balls[i].velocity.z * -balls[i].restitution;
+							found = true;
+						}
+
+						if(found) {
+							break;
+						}
 					}
 
 					if(found) {
 						break;
 					}
 				}
+			}
 
-				if(found) {
-					break;
+			if(balls[i].velocity.z < 0 && checkCollision(balls[i].body, paddle)) {
+				playAudio(paddleAudio);
+				balls[i].velocity = {'x': ((mouseX-canv.width/2)/(canv.width/2))*(0.003 + Math.random()*0.002), 'y': ((mouseY-canv.height/2)/(canv.height/2))*0.02 + 0.01, 'z': 0.02};
+				if(Math.abs(balls[i].velocity.x) < 0.0005) {
+					balls[i].velocity.x += 0.01*Math.random() - 0.005;
+				}
+
+				score++;
+			}
+
+			if(balls[i].velocity.z < 0 && balls[i].body.faces[0].vertices[0].z < -0.5) {
+				for(var j in levels[currLevel].bodies) {
+					if(levels[currLevel].bodies[j] == balls[i]) {
+						levels[currLevel].bodies.splice(j, 1);
+						break;
+					}
+				}
+
+				balls.splice(i, 1);
+
+				if(balls.length == 0) {
+					for(var j=0; j<topScores.length; j++) {
+						if(score > topScores[j][1]) {
+							rank = j;
+							break;
+						}
+					}
+
+					transitioning = -0.5;
+					moved = 0;
+					sequence = 0;
 				}
 			}
 		}
 
-		if(balls[i].velocity.z < 0 && checkCollision(balls[i].body, paddle)) {
-			playAudio(paddleAudio);
-			balls[i].velocity = {'x': ((mouseX-canv.width/2)/(canv.width/2))*(0.003 + Math.random()*0.002), 'y': ((mouseY-canv.height/2)/(canv.height/2))*0.02 + 0.01, 'z': 0.018};
-			if(Math.abs(balls[i].velocity.x) < 0.0005) {
-				balls[i].velocity.x += 0.01*Math.random() - 0.005;
+		paddleRotationTarget = -((mouseX - canv.width/2)/(canv.width/2))*45;
+		paddle.rotate({'x': 0, 'y': 0, 'z': -(paddleRotation-paddleRotationTarget)*paddleRotationSpeed});
+		paddleRotation += -(paddleRotation-paddleRotationTarget)*paddleRotationSpeed;
+
+		levelCam['aspectRatio'] = canv.height/canv.width;
+
+		if(contains(inputs, 'w')) {
+			levelCam.translate(levelCam.look);
+		}
+		if(contains(inputs, 's')) {
+			levelCam.translate(vectorNegate(levelCam.look));
+		}
+		if(contains(inputs, 'a')) {
+			levelCam.translate(vectorCrossProduct({'x': 0, 'y': 1, 'z': 0}, levelCam.look));
+		}
+		if(contains(inputs, 'd')) {
+			levelCam.translate(vectorCrossProduct({'x': 0, 'y': -1, 'z': 0}, levelCam.look));
+		}
+		if(contains(inputs, ' ')) {
+			levelCam.translate({'x': 0, 'y': 1, 'z': 0});
+		}
+		if(contains(inputs, 'shift')) {
+			levelCam.translate({'x': 0, 'y': -1, 'z': 0});
+		}
+		if(contains(inputs, 'up')) {
+			levelCam.rotate({'x': 1, 'y': 0, 'z': 0});
+		}
+		if(contains(inputs, 'down')) {
+			levelCam.rotate({'x': -1, 'y': 0, 'z': 0});
+		}
+		if(contains(inputs, 'left')) {
+			levelCam.rotate({'x': 0, 'y': 1, 'z': 0});
+		}
+		if(contains(inputs, 'right')) {
+			levelCam.rotate({'x': 0, 'y': -1, 'z': 0});
+		}
+	} else if(gameState < 0) {
+		if(menuState == 1 && drawnLines == 7) {
+			if(name.length > 0 && contains(inputs, 'enter')) {
+				drawnLines = 0;
+				drawnLetters = 0;
+				textTransitionTimer = 0;
+				lineTransitionTimer = 0;
+				menuState = 3;
+				topScores.splice(rank, 0, [name, score]);
+				topScores.pop();
+			}
+		} else if(menuState == 4 && drawnLetters == menuText[menuState][0].length) {
+			switch(sequence) {
+				case 0:
+					if(moving == 0 && transitioning == 0 && contains(inputs, 'enter')) {
+						moving = 10;
+						sequence++;
+					}
+					break;
+				case 1:
+					gridOffset += moving;
+					moved += moving;
+					gridOffset %= gridSize;
+
+					if(moved >= canvas.width) {
+						moving = 0;
+						sequence++;
+					}
+					break;
+				case 2:
+					sequence++;
+					transitioning = 1;
+					score = 0;
+					rank = topScores.length
+					started = false;
+					break;
 			}
 		}
-	}
-
-	paddleRotationTarget = -((mouseX - canv.width/2)/(canv.width/2))*45;
-	paddle.rotate({'x': 0, 'y': 0, 'z': -(paddleRotation-paddleRotationTarget)*paddleRotationSpeed});
-	paddleRotation += -(paddleRotation-paddleRotationTarget)*paddleRotationSpeed;
-
-	canv.width = window.innerWidth;
-	canv.height = window.innerHeight;
-
-	levelCam['aspectRatio'] = canv.height/canv.width;
-
-	if(contains(inputs, 'w')) {
-		levelCam.translate(levelCam.look);
-	}
-	if(contains(inputs, 's')) {
-		levelCam.translate(vectorNegate(levelCam.look));
-	}
-	if(contains(inputs, 'a')) {
-		levelCam.translate(vectorCrossProduct({'x': 0, 'y': 1, 'z': 0}, levelCam.look));
-	}
-	if(contains(inputs, 'd')) {
-		levelCam.translate(vectorCrossProduct({'x': 0, 'y': -1, 'z': 0}, levelCam.look));
-	}
-	if(contains(inputs, ' ')) {
-		levelCam.translate({'x': 0, 'y': 1, 'z': 0});
-	}
-	if(contains(inputs, 'shift')) {
-		levelCam.translate({'x': 0, 'y': -1, 'z': 0});
-	}
-	if(contains(inputs, 'up')) {
-		levelCam.rotate({'x': 1, 'y': 0, 'z': 0});
-	}
-	if(contains(inputs, 'down')) {
-		levelCam.rotate({'x': -1, 'y': 0, 'z': 0});
-	}
-	if(contains(inputs, 'left')) {
-		levelCam.rotate({'x': 0, 'y': 1, 'z': 0});
-	}
-	if(contains(inputs, 'right')) {
-		levelCam.rotate({'x': 0, 'y': -1, 'z': 0});
 	}
 
 	var levelView = levels[currLevel].copy();
@@ -833,88 +1065,77 @@ setInterval(function() {
 }, 1000/gameSpeed);
 
 document.addEventListener('mousemove', function(event) {
-	if(paddle) {
-		paddle.translate({'x': (mouseX - event.clientX)/(canv.width/1.5), 'y': (mouseY - event.clientY)/(canv.height/0.8), 'z': 0});
+	if(gameState > 0) {
+		if(paddle) {
+			paddle.translate({'x': (mouseX - event.clientX)/(canv.width/1.5), 'y': (mouseY - event.clientY)/(canv.height/0.8), 'z': 0});
+		}
 	}
 
 	mouseX = event.clientX;
 	mouseY = event.clientY;
 });
 
-/*document.addEventListener('mousedown', function(event) {
-	var ball = new Body([
-			new Face({r: 240, g: 240, b: 240, a: 1}, [
-				new Vertex(-0.1, -0.1, -0.1),
-				new Vertex(-0.1, 0.1, -0.1),
-				new Vertex(0.1, 0.1, -0.1),
-				new Vertex(0.1, -0.1, -0.1)]),
-			new Face({r: 240, g: 240, b: 240, a: 1}, [
-				new Vertex(0.1, -0.1, 0.1),
-				new Vertex(0.1, 0.1, 0.1),
-				new Vertex(-0.1, 0.1, 0.1),
-				new Vertex(-0.1, -0.1, 0.1)]),
-			new Face({r: 240, g: 240, b: 240, a: 1}, [
-				new Vertex(0.1, -0.1, -0.1),
-				new Vertex(0.1, 0.1, -0.1),
-				new Vertex(0.1, 0.1, 0.1),
-				new Vertex(0.1, -0.1, 0.1)]),
-			new Face({r: 240, g: 240, b: 240, a: 1}, [
-				new Vertex(-0.1, -0.1, 0.1),
-				new Vertex(-0.1, 0.1, 0.1),
-				new Vertex(-0.1, 0.1, -0.1),
-				new Vertex(-0.1, -0.1, -0.1)]),
-			new Face({r: 240, g: 240, b: 240, a: 1}, [
-				new Vertex(-0.1, -0.1, 0.1),
-				new Vertex(-0.1, -0.1, -0.1),
-				new Vertex(0.1, -0.1, -0.1),
-				new Vertex(0.1, -0.1, 0.1)]),
-			new Face({r: 240, g: 240, b: 240, a: 1}, [
-				new Vertex(-0.1, 0.1, -0.1),
-				new Vertex(-0.1, 0.1, 0.1),
-				new Vertex(0.1, 0.1, 0.1),
-				new Vertex(0.1, 0.1, -0.1)])]);
-
-		ball.transform([
-			[0.2, 0, 0, 0],
-			[0, 0.2, 0, 0],
-			[0, 0, 0.2, 0],
-			[0, 0, 0, 0]]);
-
-		ball.translate({'x': 0, 'y': 0.3, 'z': 0});
-
-		balls.push({'restitution': 0.9, 'weight': 1, 'velocity': {'x': ((Math.random() >= 0.5) ? 0.0015 : -0.0015), 'y': 0, 'z': 0.014}, 'body': ball});
-		levels[currLevel].bodies.splice(levels[currLevel].bodies.length-2, 0, ball);
-});*/
+document.addEventListener('mousedown', function(event) {
+	
+});
 
 document.addEventListener('keydown', function(event) {
-	var keyPressed = keycode(event.keyCode);
+	var keyPressed = keycode(event.keyCode, shift);
 	if(!contains(inputs, keyPressed)) {
 		inputs.push(keyPressed);
+	}
+
+	if(keyPressed == 'shift') {
+		shift = true;
+	}
+
+	if(gameState < 0 && menuState == 1 && drawnLines == 7) {
+		if(keyPressed.length == 1 && name.length < nameMaxLength) {
+			name += keyPressed;
+		} else if(keyPressed == 'back') {
+			name = name.substring(0, name.length-1);
+		}
 	}
 });
 
 document.addEventListener('keyup', function(event) {
-	var keyPressed = keycode(event.keyCode);
+	var keyPressed = keycode(event.keyCode, shift);
 	var listIndex = contains(inputs, keyPressed);
 	if(listIndex) {
 		inputs.splice(listIndex, 1);
+	}
+
+	if(keyPressed == 'shift') {
+		shift = false;
 	}
 });
 
 function keycode(keycode, shift) {
   switch (keycode) {
+  	case 8: // Backspace
+  	  return 'back';
+  	  break;
+  	case 13: // Enter
+  	  return 'enter';
+  	  break;
   	case 16: // Shift
       return 'shift';
+      break;
     case 32: // Space
       return ' ';
+      break;
     case 37: // Left
       return 'left';
+      break;
     case 38: // Up
       return 'up';
+      break;
     case 39: // Right
       return 'right';
+      break;
     case 40: // Down
       return 'down';
+      break;
     case 48:
       return ((shift) ? ')' : '0');
       break;
