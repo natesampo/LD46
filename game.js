@@ -9,7 +9,7 @@ canv.style.top = 0;
 canv.style.left = 0;
 
 var started = false;
-var menu = true;
+var menu = false;
 
 var balls = [];
 var paddle;
@@ -29,16 +29,20 @@ function playAudio(audioList) {
 	}
 
 	var num = Math.floor(Math.random()*(audioList.length));
-	audioList[num].play();
+	var promise = audioList[num].play();
 
-	let addList = audioList;
-	function addBack() {
-		addList.push(this);
-		this.removeEventListener('ended', addBack);
+	if (promise !== undefined) {
+		promise.then(_ => {
+			let addList = audioList;
+			function addBack() {
+				addList.push(this);
+				this.removeEventListener('ended', addBack);
+			}
+			audioList[num].addEventListener('ended', addBack);
+
+			audioList.splice(num, 1);
+		}).catch(error => {});
 	}
-	audioList[num].addEventListener('ended', addBack);
-
-	audioList.splice(num, 1);
 }
 
 function contains(list, item) {
@@ -837,7 +841,7 @@ document.addEventListener('mousemove', function(event) {
 	mouseY = event.clientY;
 });
 
-document.addEventListener('mousedown', function(event) {
+/*document.addEventListener('mousedown', function(event) {
 	var ball = new Body([
 			new Face({r: 240, g: 240, b: 240, a: 1}, [
 				new Vertex(-0.1, -0.1, -0.1),
@@ -880,7 +884,7 @@ document.addEventListener('mousedown', function(event) {
 
 		balls.push({'restitution': 0.9, 'weight': 1, 'velocity': {'x': ((Math.random() >= 0.5) ? 0.0015 : -0.0015), 'y': 0, 'z': 0.014}, 'body': ball});
 		levels[currLevel].bodies.splice(levels[currLevel].bodies.length-2, 0, ball);
-});
+});*/
 
 document.addEventListener('keydown', function(event) {
 	var keyPressed = keycode(event.keyCode);
