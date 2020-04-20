@@ -898,6 +898,26 @@ function render(level, canvas, camera) {
 					balls[i].restitution = 0.99;
 				}
 			}
+		} else if(playState == 7) {
+			if(timer < 300) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('Let\'s make that paddle a bit smaller', canvas.width/2 - context.measureText('Let\'s make that paddle a bit smaller').width/2, canvas.height/2.7);
+				context.fillText('Let\'s make that paddle a bit smaller', canvas.width/2 - context.measureText('Let\'s make that paddle a bit smaller').width/2, canvas.height/2.7);
+				timer++;
+			} else {
+				timer = 0;
+				playState++;
+				paddle.transform([
+					[0.8, 0, 0, 0],
+					[0, 0.8, 0, 0],
+					[0, 0, 1, 0],
+					[0, 0, 0, 0]]);
+
+				paddle.translate({'x': 0.03, 'y': 0.04, 'z': 0});
+			}
 		}
 	} else if(gameState < 0) {
 		context.fillStyle = 'rgba(225, 225, 225, 1)';
@@ -1061,6 +1081,8 @@ setInterval(function() {
 					playState++;
 				} else if(score >= 24 && playState == 4) {
 					playState++;
+				} else if(score >= 34 && playState == 6) {
+					playState++;
 				}
 			}
 
@@ -1074,7 +1096,7 @@ setInterval(function() {
 
 				balls.splice(i, 1);
 
-				if(balls.length == 0) {
+				if(balls.length == 0 && playState != 1 && playState != 3) {
 					for(var j=0; j<topScores.length; j++) {
 						if(score > topScores[j][1]) {
 							rank = j;
