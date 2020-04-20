@@ -113,7 +113,12 @@ var menuText = [
 			'Your Score: ^^^^^^^^^^^^^'
 		],
 		[
+			'You\'ve kept this clone alive',
+			'Press Enter to Test New Clone'
+		],
+		[
 			'Preparing to Terminate Clone',
+			'You did not keep this clone alive',
 			'Press Enter to Test New Clone'
 		]
 	];
@@ -1316,7 +1321,11 @@ function render(level, canvas, camera) {
 									drawnLetters = 0;
 									textTransitionTimer = 0;
 									lineTransitionTimer = 0;
-									menuState = 4;
+									if(alive) {
+										menuState = 4;
+									} else {
+										menuState = 5;
+									}
 									break;
 							}
 						} else {
@@ -1650,7 +1659,7 @@ setInterval(function() {
 				}
 				xhr2.send(topScores);
 			}
-		} else if(menuState == 4 && drawnLetters == menuText[menuState][1].length) {
+		} else if((menuState == 5 && drawnLetters == menuText[menuState][2].length) || (menuState == 4 && drawnLetters == menuText[menuState][1].length)) {
 			switch(sequence) {
 				case 0:
 					if(moving == 0 && transitioning == 0 && contains(inputs, 'enter')) {
@@ -1664,7 +1673,9 @@ setInterval(function() {
 					gridOffset %= gridSize;
 
 					if(moved >= canvas.width*0.7) {
-						playAudio(deathAudio, false);
+						if(!alive) {
+							playAudio(deathAudio, false);
+						}
 						sequence++;
 					}
 					break;
