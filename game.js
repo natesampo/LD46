@@ -14,9 +14,11 @@ var gameState = 100;
 var transitioning = 0;
 var menuState = 0;
 
-var topScores = [['Vinny', 11], ['Fred', 10], ['Bob', 9], ['Joe', 8], ['WWWWWW', 7]];
+var topScores = [];
 var balls = [];
+var negativeBalls = [];
 var paddle;
+var enemyPaddle = null;
 var gravity = 0.0005;
 var mouseX = canv.width/2;
 var mouseY = canv.height/1.5;
@@ -45,6 +47,30 @@ var moved = 0;
 var clicked = false;
 var playState = 0;
 var timer = 0;
+var static = 0;
+var staticNum = 60;
+var toggle = false;
+var paused = false;
+var staticTimer = 0;
+var staticTime = Math.random()*3000 + 1000;
+
+var accessToken = '2MMTqs9tilAAAAAAAAAATSgeQuYDN3pbHX8HgplCZLo1jmJ5D_is12Bpeoq-ih8';
+
+var xhr1 = new XMLHttpRequest();
+xhr1.open('GET', 'https://content.dropboxapi.com/2/files/download', true);
+xhr1.setRequestHeader('Content-Type', 'application/octet-stream');
+xhr1.setRequestHeader('Authorization', 'Bearer ' + accessToken + 'G');
+xhr1.setRequestHeader('Dropbox-API-Arg', '{\"path\": \"/pain_pong/records\"}');
+xhr1.onreadystatechange = function() {
+	if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+		topScores = [];
+		var records = this.responseText.split(',');
+		for(var i=0; i<records.length; i+=2) {
+			topScores[i/2] = [records[i], parseInt(records[i+1])];
+		}
+	}
+}
+xhr1.send(null);
 
 var menuText = [
 		[
@@ -89,11 +115,16 @@ faceImg.src = 'face.png';
 var terminalImg = new Image();
 terminalImg.src = 'terminal.png';
 
+var noiseImg = new Image();
+noiseImg.src = 'noise.png';
+
 var paddleAudio = [new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3')];
 var ballAudio = [new Audio('ball1.mp3'), new Audio('ball2.mp3'), new Audio('ball3.mp3'), new Audio('ball4.mp3'), new Audio('ball5.mp3')];
 var deathAudio = [new Audio('death1.mp3')];
 var typingAudio = [new Audio('typing1.mp3')];
 var intoAudio = [new Audio('into1.mp3')];
+var staticAudio = [new Audio('static1.mp3')];
+var hitAudio = [new Audio('hit1.wav')];
 
 function playAudio(audioList, loop) {
 	if(audioList.length == 0) {
@@ -589,34 +620,34 @@ class Level {
 	}
 }
 
-function createBall() {
+function createBall(good) {
 	var ball = new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
+		new Face({r: 240, g: ((good) ? 240 : 30), b: ((good) ? 240 : 30), a: 1}, [
 			new Vertex(-0.1, -0.1, -0.1),
 			new Vertex(-0.1, 0.1, -0.1),
 			new Vertex(0.1, 0.1, -0.1),
 			new Vertex(0.1, -0.1, -0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
+		new Face({r: 240, g: ((good) ? 240 : 30), b: ((good) ? 240 : 30), a: 1}, [
 			new Vertex(0.1, -0.1, 0.1),
 			new Vertex(0.1, 0.1, 0.1),
 			new Vertex(-0.1, 0.1, 0.1),
 			new Vertex(-0.1, -0.1, 0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
+		new Face({r: 240, g: ((good) ? 240 : 30), b: ((good) ? 240 : 30), a: 1}, [
 			new Vertex(0.1, -0.1, -0.1),
 			new Vertex(0.1, 0.1, -0.1),
 			new Vertex(0.1, 0.1, 0.1),
 			new Vertex(0.1, -0.1, 0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
+		new Face({r: 240, g: ((good) ? 240 : 30), b: ((good) ? 240 : 30), a: 1}, [
 			new Vertex(-0.1, -0.1, 0.1),
 			new Vertex(-0.1, 0.1, 0.1),
 			new Vertex(-0.1, 0.1, -0.1),
 			new Vertex(-0.1, -0.1, -0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
+		new Face({r: 240, g: ((good) ? 240 : 30), b: ((good) ? 240 : 30), a: 1}, [
 			new Vertex(-0.1, -0.1, 0.1),
 			new Vertex(-0.1, -0.1, -0.1),
 			new Vertex(0.1, -0.1, -0.1),
 			new Vertex(0.1, -0.1, 0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
+		new Face({r: 240, g: ((good) ? 240 : 30), b: ((good) ? 240 : 30), a: 1}, [
 			new Vertex(-0.1, 0.1, -0.1),
 			new Vertex(-0.1, 0.1, 0.1),
 			new Vertex(0.1, 0.1, 0.1),
@@ -630,7 +661,11 @@ function createBall() {
 
 	ball.translate({'x': 0, 'y': 0.3, 'z': 0});
 
-	balls.push({'restitution': ((playState >= 6) ? 0.99 : 0.9), 'weight': 1, 'velocity': {'x': ((Math.random() >= 0.5) ? 0.0015 : -0.0015), 'y': 0, 'z': 0.014}, 'body': ball});
+	if(good) {
+		balls.push({'restitution': ((playState >= 6) ? 0.99 : 0.9), 'weight': 1, 'velocity': {'x': ((Math.random() >= 0.5) ? 0.0015 : -0.0015), 'y': 0, 'z': 0.014}, 'body': ball});
+	} else {
+		negativeBalls.push({'restitution': ((playState >= 6) ? 0.99 : 0.9), 'weight': 1, 'velocity': {'x': ((Math.random() >= 0.5) ? 0.0015 : -0.0015), 'y': 0, 'z': 0.014}, 'body': ball});
+	}
 	levels[currLevel].bodies.splice(levels[currLevel].bodies.length-1, 0, ball);
 }
 
@@ -720,11 +755,11 @@ function setup() {
 			'x': 0,
 			'y': 0,
 			'z': -1}),
-		0.02,
+		0.005,
 		1);
 
 	if(clicked) {
-		createBall();
+		createBall(true);
 	}
 
 	paddle = new Body([
@@ -864,7 +899,7 @@ function render(level, canvas, camera) {
 				timer++;
 			} else {
 				timer = 0;
-				createBall();
+				createBall(true);
 				playState++;
 			}
 		} else if(playState == 3) {
@@ -878,7 +913,7 @@ function render(level, canvas, camera) {
 				timer++;
 			} else {
 				timer = 0;
-				createBall();
+				createBall(true);
 				playState++;
 			}
 		} else if(playState == 5) {
@@ -887,9 +922,10 @@ function render(level, canvas, camera) {
 				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
 				context.strokeStyle = 'rgba(30, 30, 30, 1)';
 				levels[currLevel].bodies[0].faces[0].color = {'r': 200*(timer/300), 'g': 0, 'b': 200 - 200*(timer/300), 'a': 1};
+				levels[currLevel].bodies[5].faces[0].color = {'r': 200*(timer/300), 'g': 0, 'b': 200 - 200*(timer/300), 'a': 1};
 				context.lineWidth = 6;
-				context.strokeText('Increase the restitution of the backboard', canvas.width/2 - context.measureText('Increase the restitution of the backboard').width/2, canvas.height/2.7);
-				context.fillText('Increase the restitution of the backboard', canvas.width/2 - context.measureText('Increase the restitution of the backboard').width/2, canvas.height/2.7);
+				context.strokeText('Increase the restitution of the table', canvas.width/2 - context.measureText('Increase the restitution of the table').width/2, canvas.height/2.7);
+				context.fillText('Increase the restitution of the table', canvas.width/2 - context.measureText('Increase the restitution of the table').width/2, canvas.height/2.7);
 				timer++;
 			} else {
 				timer = 0;
@@ -906,18 +942,116 @@ function render(level, canvas, camera) {
 				context.lineWidth = 6;
 				context.strokeText('Let\'s make that paddle a bit smaller', canvas.width/2 - context.measureText('Let\'s make that paddle a bit smaller').width/2, canvas.height/2.7);
 				context.fillText('Let\'s make that paddle a bit smaller', canvas.width/2 - context.measureText('Let\'s make that paddle a bit smaller').width/2, canvas.height/2.7);
+				paddle.transform([
+					[0.9992, 0, 0, 0],
+					[0, 0.9992, 0, 0],
+					[0, 0, 1, 0],
+					[0, 0, 0, 0]]);
+				paddle.translate({'x': 0.0001, 'y': 0.00013, 'z': 0});
 				timer++;
 			} else {
 				timer = 0;
 				playState++;
-				paddle.transform([
-					[0.8, 0, 0, 0],
-					[0, 0.8, 0, 0],
-					[0, 0, 1, 0],
-					[0, 0, 0, 0]]);
-
-				paddle.translate({'x': 0.03, 'y': 0.04, 'z': 0});
 			}
+		} else if(playState == 9) {
+			if(timer < 300) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('Don\'t touch these ', canvas.width/2 - context.measureText('Don\'t touch these RED Balls').width/2, canvas.height/2.7);
+				context.fillText('Don\'t touch these ', canvas.width/2 - context.measureText('Don\'t touch these RED Balls').width/2, canvas.height/2.7);
+				context.strokeText(' Balls', canvas.width/2 - context.measureText('Don\'t touch these RED Balls').width/2 + context.measureText('Don\'t touch these RED').width, canvas.height/2.7);
+				context.fillText(' Balls', canvas.width/2 - context.measureText('Don\'t touch these RED Balls').width/2 + context.measureText('Don\'t touch these RED').width, canvas.height/2.7);
+
+				context.fillStyle = 'rgba(230, 0, 0, ' + timer/200 + ')';
+				context.strokeText('RED', canvas.width/2 - context.measureText('Don\'t touch these RED Balls').width/2 + context.measureText('Don\'t touch these ').width, canvas.height/2.7);
+				context.fillText('RED', canvas.width/2 - context.measureText('Don\'t touch these RED Balls').width/2 + context.measureText('Don\'t touch these ').width, canvas.height/2.7);
+				timer++;
+			} else {
+				createBall(false);
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 11 && !paused) {
+			createBall(false);
+			timer = 0;
+			playState++;
+		} else if(playState == 12 && !paused) {
+			if(timer < 100) {
+				timer++;
+			} else {
+				createBall(false);
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 13 && !paused) {
+			if(timer < 100) {
+				timer++;
+			} else {
+				createBall(false);
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 14 && !paused) {
+			if(timer < 50) {
+				timer++;
+			} else {
+				createBall(false);
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 15 && !paused) {
+			if(timer < 50) {
+				timer++;
+			} else {
+				createBall(false);
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 16 && !paused) {
+			if(timer < 75) {
+				timer++;
+			} else {
+				createBall(false);
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 17 && !paused) {
+			if(timer < 150) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('Zooming out', canvas.width/2 - context.measureText('Zooming out').width/2, canvas.height/2.7);
+				context.fillText('Zooming out', canvas.width/2 - context.measureText('Zooming out').width/2, canvas.height/2.7);
+				levelCam.translate(vectorNegate(levelCam.look));
+				timer++;
+			} else {
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 17 && !paused) {
+			if(timer < 150) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('Zooming back in', canvas.width/2 - context.measureText('Zooming back in').width/2, canvas.height/2.7);
+				context.fillText('Zooming back in', canvas.width/2 - context.measureText('Zooming back in').width/2, canvas.height/2.7);
+				levelCam.translate(levelCam.look);
+				timer++;
+			} else {
+				timer = 0;
+				playState++;
+			}
+		}
+
+		if(static > 0) {
+			static--;
+			context.globalAlpha = Math.abs(Math.abs(static - staticNum/2) - staticNum/2)/(staticNum*1.5);
+			context.drawImage(noiseImg, 0, 0, canvas.width, canvas.height);
+			context.globalAlpha = 1;
 		}
 	} else if(gameState < 0) {
 		context.fillStyle = 'rgba(225, 225, 225, 1)';
@@ -968,6 +1102,29 @@ function render(level, canvas, camera) {
 						if(textTransitionTimer == textTransitionTime) {
 							switch(menuState) {
 								case 0:
+									var xhr1 = new XMLHttpRequest();
+									xhr1.open('GET', 'https://content.dropboxapi.com/2/files/download', true);
+									xhr1.setRequestHeader('Content-Type', 'application/octet-stream');
+									xhr1.setRequestHeader('Authorization', 'Bearer ' + accessToken + 'G');
+									xhr1.setRequestHeader('Dropbox-API-Arg', '{\"path\": \"/pain_pong/records\"}');
+									xhr1.onreadystatechange = function() {
+										if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+											topScores = [];
+											var records = this.responseText.split(',');
+											for(var i=0; i<records.length; i+=2) {
+												topScores[i/2] = [records[i], parseInt(records[i+1])];
+											}
+
+											for(var j=0; j<topScores.length; j++) {
+												if(score > topScores[j][1]) {
+													rank = j;
+													break;
+												}
+											}
+										}
+									}
+									xhr1.send(null);
+
 									if(rank == topScores.length) {
 										menuState = 2;
 										alive = false;
@@ -1022,7 +1179,7 @@ setInterval(function() {
 		transitioning = 0;
 	}
 
-	if(gameState > 0) {
+	if(gameState > 0 && !paused) {
 		if(!started) {
 			started = true;
 			setup();
@@ -1035,12 +1192,75 @@ setInterval(function() {
 		menuState = 0;
 		alive = false;
 
+		if(playState >= 4 && static == 0) {
+			if(staticTimer >= staticTime) {
+				staticTimer = 0;
+				staticTime = Math.random()*3000 + 1000;
+				static = staticNum;
+				playAudio(staticAudio);
+			} else {
+				staticTimer++;
+			}
+		}
+
+		for(var i in negativeBalls) {
+			negativeBalls[i].velocity.y -= gravity * negativeBalls[i].weight;
+			negativeBalls[i].body.translate(negativeBalls[i].velocity);
+
+			var found = false;
+			if(negativeBalls[i].velocity.y < 0 || (negativeBalls[i].velocity.z > 0 && !enemyPaddle)) {
+				for(var j in negativeBalls[i].body.faces) {
+					for(var k in negativeBalls[i].body.faces[j].vertices) {
+						if(negativeBalls[i].velocity.y < 0 && negativeBalls[i].body.faces[j].vertices[k].y < -0.2) {
+							playAudio(ballAudio, false);
+							negativeBalls[i].velocity.y = negativeBalls[i].velocity.y * -negativeBalls[i].restitution;
+							found = true;
+						}
+
+						if(negativeBalls[i].velocity.z > 0 && negativeBalls[i].body.faces[j].vertices[k].z > 1) {
+							playAudio(ballAudio, false);
+							negativeBalls[i].velocity.z = negativeBalls[i].velocity.z * -negativeBalls[i].restitution;
+							found = true;
+						}
+
+						if(found) {
+							break;
+						}
+					}
+
+					if(found) {
+						break;
+					}
+				}
+			}
+
+			if(negativeBalls[i].velocity.z < 0 && checkCollision(negativeBalls[i].body, paddle)) {
+				playAudio(hitAudio, false);
+
+				transitioning = -0.5;
+				moved = 0;
+				sequence = 0;
+				paused = true;
+			}
+
+			if(negativeBalls[i].velocity.z < 0 && negativeBalls[i].body.faces[0].vertices[0].z < -0.5) {
+				for(var j in levels[currLevel].bodies) {
+					if(levels[currLevel].bodies[j] == negativeBalls[i].body) {
+						levels[currLevel].bodies.splice(j, 1);
+						break;
+					}
+				}
+
+				negativeBalls.splice(i, 1);
+			}
+		}
+
 		for(var i in balls) {
 			balls[i].velocity.y -= gravity * balls[i].weight;
 			balls[i].body.translate(balls[i].velocity);
 
 			var found = false;
-			if(balls[i].velocity.y < 0 || balls[i].velocity.z > 0) {
+			if(balls[i].velocity.y < 0 || (balls[i].velocity.z > 0 && !enemyPaddle)) {
 				for(var j in balls[i].body.faces) {
 					for(var k in balls[i].body.faces[j].vertices) {
 						if(balls[i].velocity.y < 0 && balls[i].body.faces[j].vertices[k].y < -0.2) {
@@ -1083,12 +1303,18 @@ setInterval(function() {
 					playState++;
 				} else if(score >= 34 && playState == 6) {
 					playState++;
+				} else if(score >= 45 && playState == 8) {
+					playState++;
+				} else if(score >= 52 && playState == 10) {
+					playState++;
+				} else if(score >= 69 && playState == 18) {
+					playState++;
 				}
 			}
 
 			if(balls[i].velocity.z < 0 && balls[i].body.faces[0].vertices[0].z < -0.5) {
 				for(var j in levels[currLevel].bodies) {
-					if(levels[currLevel].bodies[j] == balls[i]) {
+					if(levels[currLevel].bodies[j] == balls[i].body) {
 						levels[currLevel].bodies.splice(j, 1);
 						break;
 					}
@@ -1097,16 +1323,10 @@ setInterval(function() {
 				balls.splice(i, 1);
 
 				if(balls.length == 0 && playState != 1 && playState != 3) {
-					for(var j=0; j<topScores.length; j++) {
-						if(score > topScores[j][1]) {
-							rank = j;
-							break;
-						}
-					}
-
 					transitioning = -0.5;
 					moved = 0;
 					sequence = 0;
+					paused = true;
 				}
 			}
 		}
@@ -1148,15 +1368,29 @@ setInterval(function() {
 			levelCam.rotate({'x': 0, 'y': -1, 'z': 0});
 		}
 	} else if(gameState < 0) {
+		paused = false;
 		if(menuState == 1 && drawnLines == 7) {
-			if(name.length > 0 && contains(inputs, 'enter')) {
-				drawnLines = 0;
-				drawnLetters = 0;
-				textTransitionTimer = 0;
-				lineTransitionTimer = 0;
-				menuState = 3;
+			if(!toggle && name.length > 0 && contains(inputs, 'enter')) {
 				topScores.splice(rank, 0, [name, score]);
 				topScores.pop();
+				toggle = true;
+
+				var xhr2 = new XMLHttpRequest();
+				xhr2.open('POST', 'https://content.dropboxapi.com/2/files/upload', true);
+				xhr2.setRequestHeader('Content-Type', 'application/octet-stream');
+				xhr2.setRequestHeader('Authorization', 'Bearer ' + accessToken + 'G');
+				xhr2.setRequestHeader('Dropbox-API-Arg', '{\"path\": \"/pain_pong/records\",\"mode\": \"overwrite\",\"autorename\": true,\"mute\": false}');
+				xhr2.onreadystatechange = function() {
+					if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+						drawnLines = 0;
+						drawnLetters = 0;
+						textTransitionTimer = 0;
+						lineTransitionTimer = 0;
+						menuState = 3;
+						toggle = false;
+					}
+				}
+				xhr2.send(topScores);
 			}
 		} else if(menuState == 4 && drawnLetters == menuText[menuState][1].length) {
 			switch(sequence) {
@@ -1194,6 +1428,7 @@ setInterval(function() {
 					rank = topScores.length
 					started = false;
 					playState = 0;
+					enemyPaddle = null;
 					break;
 			}
 		}
@@ -1217,7 +1452,7 @@ document.addEventListener('mousemove', function(event) {
 
 document.addEventListener('mousedown', function(event) {
 	if(!clicked) {
-		createBall();
+		createBall(true);
 		clicked = true;
 	}
 });
@@ -1233,7 +1468,7 @@ document.addEventListener('keydown', function(event) {
 	}
 
 	if(gameState < 0 && menuState == 1 && drawnLines == 7) {
-		if(keyPressed.length == 1 && name.length < nameMaxLength) {
+		if(keyPressed.length == 1 && keyPressed != ',' && name.length < nameMaxLength) {
 			name += keyPressed;
 		} else if(keyPressed == 'back') {
 			name = name.substring(0, name.length-1);
