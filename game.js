@@ -42,10 +42,13 @@ var alive = false;
 var moving = 0;
 var sequence = 0;
 var moved = 0;
+var clicked = false;
+var playState = 0;
+var timer = 0;
 
 var menuText = [
 		[
-			'Proficiency Testing Terminated',
+			'Proficiency Testing Simulation Terminated',
 			'Clone Received Score: ^^^^^^^^^^^^^',
 			'Calculating Results..........................'
 		],
@@ -75,6 +78,7 @@ var menuText = [
 			'Your Score: ^^^^^^^^^^^^^'
 		],
 		[
+			'Preparing to Terminate Clone',
 			'Press Enter to Test New Clone'
 		]
 	];
@@ -87,8 +91,11 @@ terminalImg.src = 'terminal.png';
 
 var paddleAudio = [new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3')];
 var ballAudio = [new Audio('ball1.mp3'), new Audio('ball2.mp3'), new Audio('ball3.mp3'), new Audio('ball4.mp3'), new Audio('ball5.mp3')];
+var deathAudio = [new Audio('death1.mp3')];
+var typingAudio = [new Audio('typing1.mp3')];
+var intoAudio = [new Audio('into1.mp3')];
 
-function playAudio(audioList) {
+function playAudio(audioList, loop) {
 	if(audioList.length == 0) {
 		return;
 	}
@@ -103,10 +110,33 @@ function playAudio(audioList) {
 				addList.push(this);
 				this.removeEventListener('ended', addBack);
 			}
-			audioList[num].addEventListener('ended', addBack);
 
-			audioList.splice(num, 1);
+			function replay() {
+				if(this.playAgain) {
+					var buffer = .44
+					if(this.currentTime > this.duration - buffer){
+						this.currentTime = 0
+						this.play()
+					}
+				}
+			}
+
+			if(loop) {
+				if(!audioList[num]['playAgain']) {
+					audioList[num].addEventListener('timeupdate', replay);
+					audioList[num]['playAgain'] = true;
+				}
+			} else {
+				audioList[num].addEventListener('ended', addBack);
+				audioList.splice(num, 1);
+			}
 		}).catch(error => {});
+	}
+}
+
+function stopAudio(audioList) {
+	for(var i in audioList) {
+		audioList[i]['playAgain'] = false;
 	}
 }
 
@@ -559,6 +589,51 @@ class Level {
 	}
 }
 
+function createBall() {
+	var ball = new Body([
+		new Face({r: 240, g: 240, b: 240, a: 1}, [
+			new Vertex(-0.1, -0.1, -0.1),
+			new Vertex(-0.1, 0.1, -0.1),
+			new Vertex(0.1, 0.1, -0.1),
+			new Vertex(0.1, -0.1, -0.1)]),
+		new Face({r: 240, g: 240, b: 240, a: 1}, [
+			new Vertex(0.1, -0.1, 0.1),
+			new Vertex(0.1, 0.1, 0.1),
+			new Vertex(-0.1, 0.1, 0.1),
+			new Vertex(-0.1, -0.1, 0.1)]),
+		new Face({r: 240, g: 240, b: 240, a: 1}, [
+			new Vertex(0.1, -0.1, -0.1),
+			new Vertex(0.1, 0.1, -0.1),
+			new Vertex(0.1, 0.1, 0.1),
+			new Vertex(0.1, -0.1, 0.1)]),
+		new Face({r: 240, g: 240, b: 240, a: 1}, [
+			new Vertex(-0.1, -0.1, 0.1),
+			new Vertex(-0.1, 0.1, 0.1),
+			new Vertex(-0.1, 0.1, -0.1),
+			new Vertex(-0.1, -0.1, -0.1)]),
+		new Face({r: 240, g: 240, b: 240, a: 1}, [
+			new Vertex(-0.1, -0.1, 0.1),
+			new Vertex(-0.1, -0.1, -0.1),
+			new Vertex(0.1, -0.1, -0.1),
+			new Vertex(0.1, -0.1, 0.1)]),
+		new Face({r: 240, g: 240, b: 240, a: 1}, [
+			new Vertex(-0.1, 0.1, -0.1),
+			new Vertex(-0.1, 0.1, 0.1),
+			new Vertex(0.1, 0.1, 0.1),
+			new Vertex(0.1, 0.1, -0.1)])]);
+
+	ball.transform([
+		[0.2, 0, 0, 0],
+		[0, 0.2, 0, 0],
+		[0, 0, 0.2, 0],
+		[0, 0, 0, 0]]);
+
+	ball.translate({'x': 0, 'y': 0.3, 'z': 0});
+
+	balls.push({'restitution': ((playState >= 6) ? 0.99 : 0.9), 'weight': 1, 'velocity': {'x': ((Math.random() >= 0.5) ? 0.0015 : -0.0015), 'y': 0, 'z': 0.014}, 'body': ball});
+	levels[currLevel].bodies.splice(levels[currLevel].bodies.length-1, 0, ball);
+}
+
 function setup() {
 	levels = [new Level({r: 40, g: 40, b: 40, a: 1}, [
 		new Body([
@@ -648,48 +723,9 @@ function setup() {
 		0.02,
 		1);
 
-	var ball = new Body([
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(-0.1, -0.1, -0.1),
-			new Vertex(-0.1, 0.1, -0.1),
-			new Vertex(0.1, 0.1, -0.1),
-			new Vertex(0.1, -0.1, -0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(0.1, -0.1, 0.1),
-			new Vertex(0.1, 0.1, 0.1),
-			new Vertex(-0.1, 0.1, 0.1),
-			new Vertex(-0.1, -0.1, 0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(0.1, -0.1, -0.1),
-			new Vertex(0.1, 0.1, -0.1),
-			new Vertex(0.1, 0.1, 0.1),
-			new Vertex(0.1, -0.1, 0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(-0.1, -0.1, 0.1),
-			new Vertex(-0.1, 0.1, 0.1),
-			new Vertex(-0.1, 0.1, -0.1),
-			new Vertex(-0.1, -0.1, -0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(-0.1, -0.1, 0.1),
-			new Vertex(-0.1, -0.1, -0.1),
-			new Vertex(0.1, -0.1, -0.1),
-			new Vertex(0.1, -0.1, 0.1)]),
-		new Face({r: 240, g: 240, b: 240, a: 1}, [
-			new Vertex(-0.1, 0.1, -0.1),
-			new Vertex(-0.1, 0.1, 0.1),
-			new Vertex(0.1, 0.1, 0.1),
-			new Vertex(0.1, 0.1, -0.1)])]);
-
-	ball.transform([
-		[0.2, 0, 0, 0],
-		[0, 0.2, 0, 0],
-		[0, 0, 0.2, 0],
-		[0, 0, 0, 0]]);
-
-	ball.translate({'x': 0, 'y': 0.3, 'z': 0});
-
-	balls.push({'restitution': 0.9, 'weight': 1, 'velocity': {'x': ((Math.random() >= 0.5) ? 0.0015 : -0.0015), 'y': 0, 'z': 0.014}, 'body': ball});
-	levels[currLevel].bodies.push(ball);
+	if(clicked) {
+		createBall();
+	}
 
 	paddle = new Body([
 		new Face({r: 184, g: 142, b: 94, a: 1}, [
@@ -807,6 +843,62 @@ function render(level, canvas, camera) {
 			context.fill();
 			context.closePath();
 		}
+
+		if(!clicked) {
+			context.font = '96px Arial';
+			context.fillStyle = 'rgba(30, 230, 30, 1)';
+			context.strokeStyle = 'rgba(30, 30, 30, 1)';
+			context.lineWidth = 6;
+			context.strokeText('Click to Begin', canvas.width/2 - context.measureText('Click to Begin').width/2, canvas.height/2.7);
+			context.fillText('Click to Begin', canvas.width/2 - context.measureText('Click to Begin').width/2, canvas.height/2.7);
+		}
+
+		if(playState == 1) {
+			if(timer < 300) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('Let\'s see how well you handle 2 balls', canvas.width/2 - context.measureText('Let\'s see how well you handle 2 balls').width/2, canvas.height/2.7);
+				context.fillText('Let\'s see how well you handle 2 balls', canvas.width/2 - context.measureText('Let\'s see how well you handle 2 balls').width/2, canvas.height/2.7);
+				timer++;
+			} else {
+				timer = 0;
+				createBall();
+				playState++;
+			}
+		} else if(playState == 3) {
+			if(timer < 250) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('How about another?', canvas.width/2 - context.measureText('How about another?').width/2, canvas.height/2.7);
+				context.fillText('How about another?', canvas.width/2 - context.measureText('How about another?').width/2, canvas.height/2.7);
+				timer++;
+			} else {
+				timer = 0;
+				createBall();
+				playState++;
+			}
+		} else if(playState == 5) {
+			if(timer < 300) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				levels[currLevel].bodies[0].faces[0].color = {'r': 200*(timer/300), 'g': 0, 'b': 200 - 200*(timer/300), 'a': 1};
+				context.lineWidth = 6;
+				context.strokeText('Increase the restitution of the backboard', canvas.width/2 - context.measureText('Increase the restitution of the backboard').width/2, canvas.height/2.7);
+				context.fillText('Increase the restitution of the backboard', canvas.width/2 - context.measureText('Increase the restitution of the backboard').width/2, canvas.height/2.7);
+				timer++;
+			} else {
+				timer = 0;
+				playState++;
+				for(var i in balls) {
+					balls[i].restitution = 0.99;
+				}
+			}
+		}
 	} else if(gameState < 0) {
 		context.fillStyle = 'rgba(225, 225, 225, 1)';
 		context.fillRect(0, 0, canvas.width, canvas.height);
@@ -821,20 +913,26 @@ function render(level, canvas, camera) {
 			context.fillRect(0, i, canvas.width, 3);
 		}
 
-		context.drawImage(faceImg, canvas.width/6 + moved, canvas.height/4, 3*faceImg.width, 3*faceImg.height);
-		context.drawImage(terminalImg, canvas.width/2.15 + moved, canvas.height/7.5);
-		context.drawImage(faceImg, canvas.width/6 + moved - canvas.width, canvas.height/4, 3*faceImg.width, 3*faceImg.height);
-		context.drawImage(terminalImg, canvas.width/2.15 + moved - canvas.width, canvas.height/7.5);
+		context.drawImage(faceImg, Math.min(canvas.width-terminalImg.width-faceImg.width*2.4, canvas.width/6) + moved, canvas.height/4, 3*faceImg.width, 3*faceImg.height);
+		context.drawImage(terminalImg, Math.min(canvas.width-terminalImg.width, canvas.width/2.15) + moved, canvas.height/7.5);
+		context.drawImage(faceImg, Math.min(canvas.width-terminalImg.width-faceImg.width*2.4, canvas.width/6) + moved - canvas.width, canvas.height/4, 3*faceImg.width, 3*faceImg.height);
+		context.drawImage(terminalImg, Math.min(canvas.width-terminalImg.width, canvas.width/2.15) + moved - canvas.width, canvas.height/7.5);
 
 		context.font = '20px Lucida Console';
 		context.fillStyle = 'rgba(0, 220, 0, 1)';
-		context.fillText('Starting Testing Sequence...', canvas.width/2.15 + terminalImg.width/5 + moved - canvas.width, canvas.height/7.5 + terminalImg.height/4);
+		context.fillText('Starting Testing Sequence...', Math.min(canvas.width-terminalImg.width, canvas.width/2.15) + terminalImg.width/5 + moved - canvas.width, canvas.height/7.5 + terminalImg.height/4);
 		for(var i=0; i<drawnLines; i++) {
-			context.fillText(menuText[menuState][i].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name), canvas.width/2.15 + terminalImg.width/5 + moved, canvas.height/7.5 + terminalImg.height/4 + 32*i);
+			context.fillText(menuText[menuState][i].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name), Math.min(canvas.width-terminalImg.width, canvas.width/2.15) + terminalImg.width/5 + moved, canvas.height/7.5 + terminalImg.height/4 + 32*i);
 		}
-		context.fillText(menuText[menuState][drawnLines].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name).substring(0, drawnLetters) + ((menuText[menuState][drawnLines].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name).length > drawnLetters && gameState < -65) ? '_' : ''), canvas.width/2.15 + terminalImg.width/5 + moved, canvas.height/7.5 + terminalImg.height/4 + 32*drawnLines);
+		context.fillText(menuText[menuState][drawnLines].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name).substring(0, drawnLetters) + ((menuText[menuState][drawnLines].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name).length > drawnLetters && gameState < -65) ? '_' : ''), Math.min(canvas.width-terminalImg.width, canvas.width/2.15) + terminalImg.width/5 + moved, canvas.height/7.5 + terminalImg.height/4 + 32*drawnLines);
 
 		if(gameState < -90) {
+			if(lineTransitionTimer == 0 && textTransitionTimer == 0) {
+				playAudio(typingAudio, true);
+			} else {
+				stopAudio(typingAudio);
+			}
+
 			if(currTextTime == textTime) {
 				currTextTime = 0;
 				if(drawnLetters == menuText[menuState][drawnLines].replace('!!!!!!!!!!!!!', topScores[0][0] + ': ' + topScores[0][1]).replace('@@@@@@@@@@@@@', topScores[1][0] + ': ' + topScores[1][1]).replace('#############', topScores[2][0] + ': ' + topScores[2][1]).replace('$$$$$$$$$$$$$', topScores[3][0] + ': ' + topScores[3][1]).replace('%%%%%%%%%%%%%', topScores[4][0] + ': ' + topScores[4][1]).replace('^^^^^^^^^^^^^', score).replace('&&&&&&&&&&&&&', (rank+1).toString()).replace('*************', name).length) {
@@ -926,13 +1024,13 @@ setInterval(function() {
 				for(var j in balls[i].body.faces) {
 					for(var k in balls[i].body.faces[j].vertices) {
 						if(balls[i].velocity.y < 0 && balls[i].body.faces[j].vertices[k].y < -0.2) {
-							playAudio(ballAudio);
+							playAudio(ballAudio, false);
 							balls[i].velocity.y = balls[i].velocity.y * -balls[i].restitution;
 							found = true;
 						}
 
 						if(balls[i].velocity.z > 0 && balls[i].body.faces[j].vertices[k].z > 1) {
-							playAudio(ballAudio);
+							playAudio(ballAudio, false);
 							balls[i].velocity.z = balls[i].velocity.z * -balls[i].restitution;
 							found = true;
 						}
@@ -949,13 +1047,21 @@ setInterval(function() {
 			}
 
 			if(balls[i].velocity.z < 0 && checkCollision(balls[i].body, paddle)) {
-				playAudio(paddleAudio);
+				playAudio(paddleAudio, false);
 				balls[i].velocity = {'x': ((mouseX-canv.width/2)/(canv.width/2))*(0.003 + Math.random()*0.002), 'y': ((mouseY-canv.height/2)/(canv.height/2))*0.02 + 0.01, 'z': 0.02};
 				if(Math.abs(balls[i].velocity.x) < 0.0005) {
 					balls[i].velocity.x += 0.01*Math.random() - 0.005;
 				}
 
 				score++;
+
+				if(score >= 6 && playState == 0) {
+					playState++;
+				} else if(score >= 12 && playState == 2) {
+					playState++;
+				} else if(score >= 24 && playState == 4) {
+					playState++;
+				}
 			}
 
 			if(balls[i].velocity.z < 0 && balls[i].body.faces[0].vertices[0].z < -0.5) {
@@ -1030,7 +1136,7 @@ setInterval(function() {
 				topScores.splice(rank, 0, [name, score]);
 				topScores.pop();
 			}
-		} else if(menuState == 4 && drawnLetters == menuText[menuState][0].length) {
+		} else if(menuState == 4 && drawnLetters == menuText[menuState][1].length) {
 			switch(sequence) {
 				case 0:
 					if(moving == 0 && transitioning == 0 && contains(inputs, 'enter')) {
@@ -1043,17 +1149,29 @@ setInterval(function() {
 					moved += moving;
 					gridOffset %= gridSize;
 
+					if(moved >= canvas.width*0.7) {
+						playAudio(deathAudio, false);
+						sequence++;
+					}
+					break;
+				case 2:
+					gridOffset += moving;
+					moved += moving;
+					gridOffset %= gridSize;
+
 					if(moved >= canvas.width) {
 						moving = 0;
 						sequence++;
 					}
 					break;
-				case 2:
+				case 3:
 					sequence++;
-					transitioning = 1;
+					transitioning = 0.25;
+					playAudio(intoAudio);
 					score = 0;
 					rank = topScores.length
 					started = false;
+					playState = 0;
 					break;
 			}
 		}
@@ -1076,7 +1194,10 @@ document.addEventListener('mousemove', function(event) {
 });
 
 document.addEventListener('mousedown', function(event) {
-	
+	if(!clicked) {
+		createBall();
+		clicked = true;
+	}
 });
 
 document.addEventListener('keydown', function(event) {
