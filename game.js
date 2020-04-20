@@ -25,16 +25,19 @@ var mouseY = canv.height/1.5;
 var paddleRotation = 0;
 var paddleRotationSpeed = 0.1;
 var paddleRotationTarget = 0;
+var enemyPaddleRotation = 0;
+var enemyPaddleRotationSpeed = 0.1;
+var enemyPaddleRotationTarget = 0;
 var gridOffset = 0;
 var gridSize = 156;
 var drawnLines = 0;
 var drawnLetters = 0;
 var currTextTime = 0;
 var lineTransitionTimer = 0;
-var lineTransitionTime = 5;
+var lineTransitionTime = 7;
 var textTransitionTimer = 0;
-var textTransitionTime = 25;
-var textTime = 1;
+var textTransitionTime = 30;
+var textTime = 2;
 var score = 0;
 var rank = topScores.length;
 var name = '';
@@ -52,7 +55,13 @@ var staticNum = 60;
 var toggle = false;
 var paused = false;
 var staticTimer = 0;
-var staticTime = Math.random()*3000 + 1000;
+var staticTime = Math.random()*2500 + 1000;
+var enemyPaddleSpeed = 0.01;
+var enemyPaddlePower = 1;
+var enemyPaddlePowerIncrement = 0.001;
+var letterJitter = 0;
+var eventTimer = 0;
+var eventTime = Math.random()*300 + 180;
 
 var accessToken = '2MMTqs9tilAAAAAAAAAATSgeQuYDN3pbHX8HgplCZLo1jmJ5D_is12Bpeoq-ih8';
 
@@ -118,13 +127,15 @@ terminalImg.src = 'terminal.png';
 var noiseImg = new Image();
 noiseImg.src = 'noise.png';
 
-var paddleAudio = [new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3')];
+var paddleAudio = [new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3'), new Audio('paddle1.mp3')];
 var ballAudio = [new Audio('ball1.mp3'), new Audio('ball2.mp3'), new Audio('ball3.mp3'), new Audio('ball4.mp3'), new Audio('ball5.mp3')];
 var deathAudio = [new Audio('death1.mp3')];
 var typingAudio = [new Audio('typing1.mp3')];
 var intoAudio = [new Audio('into1.mp3')];
 var staticAudio = [new Audio('static1.mp3')];
 var hitAudio = [new Audio('hit1.wav')];
+var winAudio = [new Audio('win1.wav'), new Audio('win1.wav'), new Audio('win1.wav'), new Audio('win1.wav')];
+var rageAudio = [new Audio('rage1.mp3')];
 
 function playAudio(audioList, loop) {
 	if(audioList.length == 0) {
@@ -400,7 +411,7 @@ class Vertex {
 		this.z = v.z;
 	}
 
-	rotate(origin, vector) {
+	rotate(vector, origin) {
 		this.x -= origin.x;
 		this.y -= origin.y;
 		this.z -= origin.z;
@@ -435,9 +446,9 @@ class Face {
 		}
 	}
 
-	rotate(origin, vector) {
+	rotate(vector, origin) {
 		for(var i in this.vertices) {
-			this.vertices[i].rotate(origin, vector);
+			this.vertices[i].rotate(vector, origin);
 		}
 	}
 
@@ -518,9 +529,9 @@ class Body {
 		}
 	}
 
-	rotate(vector) {
+	rotate(vector, origin) {
 		for(var i in this.faces) {
-			this.faces[i].rotate(this.getCenter(), vector);
+			this.faces[i].rotate(vector, origin);
 		}
 	}
 
@@ -758,10 +769,6 @@ function setup() {
 		0.005,
 		1);
 
-	if(clicked) {
-		createBall(true);
-	}
-
 	paddle = new Body([
 		new Face({r: 184, g: 142, b: 94, a: 1}, [
 			new Vertex(-0.018, -0.16, -0.015),
@@ -828,6 +835,10 @@ function setup() {
 	paddle.translate({'x': ((canv.width/2)-mouseX)/(canv.width/1.5), 'y': ((canv.height/1.55)-mouseY)/(canv.height/0.8), 'z': -0.025});
 
 	levels[currLevel].bodies.push(paddle);
+
+	if(clicked) {
+		createBall(true);
+	}
 }
 
 function render(level, canvas, camera) {
@@ -888,14 +899,21 @@ function render(level, canvas, camera) {
 			context.fillText('Click to Begin', canvas.width/2 - context.measureText('Click to Begin').width/2, canvas.height/2.7);
 		}
 
+		context.font = '32px Arial';
+		context.fillStyle = 'rgba(230, 230, 230, 1)';
+		context.strokeStyle = 'rgba(30, 30, 30, 1)';
+		context.lineWidth = 6;
+		context.strokeText('Score: ' + score.toString(), canvas.width/100, canvas.height/100 + 32);
+		context.fillText('Score: ' + score.toString(), canvas.width/100, canvas.height/100 + 32);
+
 		if(playState == 1) {
 			if(timer < 300) {
 				context.font = '64px Arial';
 				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
 				context.strokeStyle = 'rgba(30, 30, 30, 1)';
 				context.lineWidth = 6;
-				context.strokeText('Let\'s see how well you handle 2 balls', canvas.width/2 - context.measureText('Let\'s see how well you handle 2 balls').width/2, canvas.height/2.7);
-				context.fillText('Let\'s see how well you handle 2 balls', canvas.width/2 - context.measureText('Let\'s see how well you handle 2 balls').width/2, canvas.height/2.7);
+				context.strokeText('Let\'s see how well you handle two balls', canvas.width/2 - context.measureText('Let\'s see how well you handle two balls').width/2, canvas.height/2.7);
+				context.fillText('Let\'s see how well you handle two balls', canvas.width/2 - context.measureText('Let\'s see how well you handle two balls').width/2, canvas.height/2.7);
 				timer++;
 			} else {
 				timer = 0;
@@ -921,11 +939,9 @@ function render(level, canvas, camera) {
 				context.font = '64px Arial';
 				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
 				context.strokeStyle = 'rgba(30, 30, 30, 1)';
-				levels[currLevel].bodies[0].faces[0].color = {'r': 200*(timer/300), 'g': 0, 'b': 200 - 200*(timer/300), 'a': 1};
-				levels[currLevel].bodies[5].faces[0].color = {'r': 200*(timer/300), 'g': 0, 'b': 200 - 200*(timer/300), 'a': 1};
 				context.lineWidth = 6;
-				context.strokeText('Increase the restitution of the table', canvas.width/2 - context.measureText('Increase the restitution of the table').width/2, canvas.height/2.7);
-				context.fillText('Increase the restitution of the table', canvas.width/2 - context.measureText('Increase the restitution of the table').width/2, canvas.height/2.7);
+				context.strokeText('Increasing the restitution of the table', canvas.width/2 - context.measureText('Increasing the restitution of the table').width/2, canvas.height/2.7);
+				context.fillText('Increasing the restitution of the table', canvas.width/2 - context.measureText('Increasing the restitution of the table').width/2, canvas.height/2.7);
 				timer++;
 			} else {
 				timer = 0;
@@ -943,8 +959,8 @@ function render(level, canvas, camera) {
 				context.strokeText('Let\'s make that paddle a bit smaller', canvas.width/2 - context.measureText('Let\'s make that paddle a bit smaller').width/2, canvas.height/2.7);
 				context.fillText('Let\'s make that paddle a bit smaller', canvas.width/2 - context.measureText('Let\'s make that paddle a bit smaller').width/2, canvas.height/2.7);
 				paddle.transform([
-					[0.9992, 0, 0, 0],
-					[0, 0.9992, 0, 0],
+					[0.99908, 0, 0, 0],
+					[0, 0.99908, 0, 0],
 					[0, 0, 1, 0],
 					[0, 0, 0, 0]]);
 				paddle.translate({'x': 0.0001, 'y': 0.00013, 'z': 0});
@@ -1031,7 +1047,7 @@ function render(level, canvas, camera) {
 				timer = 0;
 				playState++;
 			}
-		} else if(playState == 17 && !paused) {
+		} else if(playState == 19 && !paused) {
 			if(timer < 150) {
 				context.font = '64px Arial';
 				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
@@ -1042,6 +1058,152 @@ function render(level, canvas, camera) {
 				levelCam.translate(levelCam.look);
 				timer++;
 			} else {
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 21) {
+			if(timer < 300) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, 1)';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('Here\'s two extra balls. You\'ll need them.', canvas.width/2 - context.measureText('Here\'s two extra balls. You\'ll need them.').width/2, canvas.height/2.7);
+				context.fillText('Here\'s two extra balls. You\'ll need them.', canvas.width/2 - context.measureText('Here\'s two extra balls. You\'ll need them.').width/2, canvas.height/2.7);
+				timer++;
+				if(timer == 100) {
+					createBall(true);
+				} else if(timer == 200) {
+					createBall(true);
+				}
+			} else {
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 22) {
+			if(timer < 150) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, 1)';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('Can you beat THIS?', canvas.width/2 - context.measureText('Can you beat THIS?').width/2, canvas.height/2.7);
+				context.fillText('Can you beat THIS?', canvas.width/2 - context.measureText('Can you beat THIS?').width/2, canvas.height/2.7);
+				if(!enemyPaddle) {
+					enemyPaddle = paddle.copy();
+					//enemyPaddle.faces[5].color = {'r': 50, 'g': 240, 'b': 0, 'a': 1};
+					//enemyPaddle.faces[6].color = {'r': 50, 'g': 240, 'b': 0, 'a': 1};
+					enemyPaddle.translate({'x': 0, 'y': 0, 'z': 2.02});
+					levels[currLevel].bodies.splice(0, 0, enemyPaddle);
+					enemyPaddleRotation = paddleRotation;
+				}
+				levels[currLevel].bodies[1].rotate({'x': -(90/150), 'y': 0, 'z': 0}, {'x': 0, 'y': -0.2, 'z': 1});
+				levels[currLevel].bodies[2].rotate({'x': -(90/150), 'y': 0, 'z': 0}, {'x': 0, 'y': -0.2, 'z': 1});
+				levels[currLevel].bodies[3].rotate({'x': -(90/150), 'y': 0, 'z': 0}, {'x': 0, 'y': -0.2, 'z': 1});
+				levels[currLevel].bodies[4].rotate({'x': -(90/150), 'y': 0, 'z': 0}, {'x': 0, 'y': -0.2, 'z': 1});
+				levels[currLevel].bodies[5].rotate({'x': -(90/150), 'y': 0, 'z': 0}, {'x': 0, 'y': -0.2, 'z': 1});
+				paused = true;
+				timer++;
+			} else {
+				timer = 0;
+				paused = false;
+				playState++;
+			}
+		} else if(playState == 23) {
+			if(timer < 300) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, 1)';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 6;
+				context.strokeText('Every hit is stronger than the last!', canvas.width/2 - context.measureText('Every hit is stronger than the last!').width/2, canvas.height/2.7);
+				context.fillText('Every hit is stronger than the last!', canvas.width/2 - context.measureText('Every hit is stronger than the last!').width/2, canvas.height/2.7);
+				timer++;
+			} else {
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 25) {
+			if(timer < 300) {
+				context.font = '64px Arial';
+				context.fillStyle = 'rgba(230, 230, 230, ' + timer/200 + ')';
+				context.strokeStyle = 'rgba(30, 30, 30, ' + timer/200 + ')';
+				context.lineWidth = 6;
+				context.strokeText('It is impervious to ', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2, canvas.height/2.7);
+				context.fillText('It is impervious to ', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2, canvas.height/2.7);
+				context.strokeText(' Balls', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2 + context.measureText('It is impervious to RED').width, canvas.height/2.7);
+				context.fillText(' Balls', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2 + context.measureText('It is impervious to RED').width, canvas.height/2.7);
+
+				context.fillStyle = 'rgba(230, 0, 0, ' + timer/200 + ')';
+				context.strokeText('R', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2 + context.measureText('It is impervious to ').width, canvas.height/2.7 + letterJitter%53);
+				context.fillText('R', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2 + context.measureText('It is impervious to ').width, canvas.height/2.7 + letterJitter%53);
+				context.strokeText('E', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2 + context.measureText('It is impervious to R').width, canvas.height/2.7 + letterJitter%79);
+				context.fillText('E', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2 + context.measureText('It is impervious to R').width, canvas.height/2.7 + letterJitter%79);
+				context.strokeText('D', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2 + context.measureText('It is impervious to RE').width, canvas.height/2.7 + letterJitter%69);
+				context.fillText('D', canvas.width/2 - context.measureText('It is impervious to RED Balls').width/2 + context.measureText('It is impervious to RE').width, canvas.height/2.7 + letterJitter%69);
+				timer++;
+
+				letterJitter = (letterJitter + Math.random())%200 - 100;
+				if(timer == 100) {
+					createBall(false);
+				} else if(timer == 200) {
+					createBall(false);
+				}
+			} else {
+				letterJitter = 0;
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 26) {
+			if(timer < 600) {
+				if(timer == 522) {
+					playAudio(rageAudio);
+				}
+				timer++;
+			} else {
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 27) {
+			if(timer < 150) {
+				context.font = '96px Arial';
+				context.fillStyle = 'rgba(230, 0, 0, 1)';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 10;
+				context.strokeText('D', canvas.width/2 - context.measureText('DIE').width/2, canvas.height/2.7 + letterJitter%69);
+				context.fillText('D', canvas.width/2 - context.measureText('DIE').width/2, canvas.height/2.7 + letterJitter%69);
+				timer++;
+
+				letterJitter = (letterJitter + Math.random())%200 - 100;
+			} else {
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 28) {
+			if(timer < 150) {
+				context.font = '96px Arial';
+				context.fillStyle = 'rgba(230, 0, 0, 1)';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 10;
+				context.strokeText('DI', canvas.width/2 - context.measureText('DIE').width/2, canvas.height/2.7 + letterJitter%79);
+				context.fillText('DI', canvas.width/2 - context.measureText('DIE').width/2, canvas.height/2.7 + letterJitter%79);
+				timer++;
+
+				letterJitter = (letterJitter + Math.random())%200 - 100;
+			} else {
+				timer = 0;
+				playState++;
+			}
+		} else if(playState == 29) {
+			if(timer < 250) {
+				context.font = '96px Arial';
+				context.fillStyle = 'rgba(230, 0, 0, 1)';
+				context.strokeStyle = 'rgba(30, 30, 30, 1)';
+				context.lineWidth = 10;
+				context.strokeText('DIE', canvas.width/2 - context.measureText('DIE').width/2, canvas.height/2.7 + letterJitter%53);
+				context.fillText('DIE', canvas.width/2 - context.measureText('DIE').width/2, canvas.height/2.7 + letterJitter%53);
+				timer++;
+
+				letterJitter = (letterJitter + Math.random())%200 - 100;
+			} else {
+				letterJitter = 0;
 				timer = 0;
 				playState++;
 			}
@@ -1102,40 +1264,45 @@ function render(level, canvas, camera) {
 						if(textTransitionTimer == textTransitionTime) {
 							switch(menuState) {
 								case 0:
-									var xhr1 = new XMLHttpRequest();
-									xhr1.open('GET', 'https://content.dropboxapi.com/2/files/download', true);
-									xhr1.setRequestHeader('Content-Type', 'application/octet-stream');
-									xhr1.setRequestHeader('Authorization', 'Bearer ' + accessToken + 'G');
-									xhr1.setRequestHeader('Dropbox-API-Arg', '{\"path\": \"/pain_pong/records\"}');
-									xhr1.onreadystatechange = function() {
-										if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
-											topScores = [];
-											var records = this.responseText.split(',');
-											for(var i=0; i<records.length; i+=2) {
-												topScores[i/2] = [records[i], parseInt(records[i+1])];
-											}
-
-											for(var j=0; j<topScores.length; j++) {
-												if(score > topScores[j][1]) {
-													rank = j;
-													break;
+									if(!toggle) {
+										toggle = true;
+										var xhr1 = new XMLHttpRequest();
+										xhr1.open('GET', 'https://content.dropboxapi.com/2/files/download', true);
+										xhr1.setRequestHeader('Content-Type', 'application/octet-stream');
+										xhr1.setRequestHeader('Authorization', 'Bearer ' + accessToken + 'G');
+										xhr1.setRequestHeader('Dropbox-API-Arg', '{\"path\": \"/pain_pong/records\"}');
+										xhr1.onreadystatechange = function() {
+											if (this.readyState === XMLHttpRequest.DONE && this.status === 200) {
+												topScores = [];
+												var records = this.responseText.split(',');
+												for(var i=0; i<records.length; i+=2) {
+													topScores[i/2] = [records[i], parseInt(records[i+1])];
 												}
+
+												rank = topScores.length;
+												for(var j=0; j<topScores.length; j++) {
+													if(score > topScores[j][1]) {
+														rank = j;
+														break;
+													}
+												}
+
+												if(rank >= topScores.length) {
+													menuState = 2;
+													alive = false;
+												} else {
+													menuState = 1;
+													alive = true;
+												}
+												drawnLines = 0;
+												drawnLetters = 0;
+												textTransitionTimer = 0;
+												lineTransitionTimer = 0;
+												toggle = false;
 											}
 										}
+										xhr1.send(null);
 									}
-									xhr1.send(null);
-
-									if(rank == topScores.length) {
-										menuState = 2;
-										alive = false;
-									} else {
-										menuState = 1;
-										alive = true;
-									}
-									drawnLines = 0;
-									drawnLetters = 0;
-									textTransitionTimer = 0;
-									lineTransitionTimer = 0;
 									break;
 								case 2:
 									drawnLines = 0;
@@ -1195,11 +1362,50 @@ setInterval(function() {
 		if(playState >= 4 && static == 0) {
 			if(staticTimer >= staticTime) {
 				staticTimer = 0;
-				staticTime = Math.random()*3000 + 1000;
+				staticTime = Math.random()*2500 + 1000;
 				static = staticNum;
 				playAudio(staticAudio);
 			} else {
 				staticTimer++;
+			}
+		}
+
+		if(playState >= 26) {
+			if(eventTimer > eventTime) {
+				eventTimer = 0;
+				eventTime = Math.random()*300 + 180;
+				createBall(((Math.random() < 0.7) ? true : false));
+			} else {
+				eventTimer++;
+			}
+		}
+
+		if(enemyPaddle) {
+			var closest;
+			for(var i in negativeBalls) {
+				var ball = negativeBalls[i];
+				var ballCenter = ball.body.getCenter();
+
+				if(!closest || (ball.velocity.z > 0 && ballCenter.z > closest.z)) {
+					closest = ballCenter;
+				}
+			}
+
+			for(var i in balls) {
+				var ball = balls[i];
+				var ballCenter = ball.body.getCenter();
+
+				if(!closest || (ball.velocity.z > 0 && ballCenter.z > closest.z)) {
+					closest = ballCenter;
+				}
+			}
+
+			if(closest) {
+				var vector = {'x': closest.x - enemyPaddle.getCenter().x, 'y': closest.y - enemyPaddle.getCenter().y, 'z': 0};
+				if(getMagnitude(vector) > enemyPaddleSpeed) {
+					vector = vectorScale(vectorNormalize(vector), enemyPaddleSpeed);
+					enemyPaddle.translate(vector);
+				}
 			}
 		}
 
@@ -1217,7 +1423,7 @@ setInterval(function() {
 							found = true;
 						}
 
-						if(negativeBalls[i].velocity.z > 0 && negativeBalls[i].body.faces[j].vertices[k].z > 1) {
+						if(!enemyPaddle && negativeBalls[i].velocity.z > 0 && negativeBalls[i].body.faces[j].vertices[k].z > 1) {
 							playAudio(ballAudio, false);
 							negativeBalls[i].velocity.z = negativeBalls[i].velocity.z * -negativeBalls[i].restitution;
 							found = true;
@@ -1243,7 +1449,26 @@ setInterval(function() {
 				paused = true;
 			}
 
-			if(negativeBalls[i].velocity.z < 0 && negativeBalls[i].body.faces[0].vertices[0].z < -0.5) {
+			if(enemyPaddle && negativeBalls[i].velocity.z > 0 && checkCollision(negativeBalls[i].body, enemyPaddle)) {
+				playAudio(paddleAudio, false);
+				var enemyPaddleCenter = enemyPaddle.getCenter();
+				negativeBalls[i].velocity = {'x': -enemyPaddleCenter.x*(0.003 + Math.random()*0.002), 'y': enemyPaddleCenter.y*0.02 + 0.011, 'z': -0.02 - enemyPaddlePower*enemyPaddlePowerIncrement};
+				enemyPaddlePower++;
+				if(Math.abs(negativeBalls[i].velocity.x) < 0.0005) {
+					negativeBalls[i].velocity.x += 0.01*Math.random() - 0.005;
+				}
+			}
+
+			if(enemyPaddle && negativeBalls[i].velocity.z > 0 && negativeBalls[i].body.getCenter().z > enemyPaddle.getCenter().z + 0.03) {
+				for(var j in levels[currLevel].bodies) {
+					if(levels[currLevel].bodies[j] == negativeBalls[i].body) {
+						levels[currLevel].bodies.splice(j, 1);
+						break;
+					}
+				}
+
+				negativeBalls.splice(i, 1);
+			} else if(negativeBalls[i].velocity.z < 0 && negativeBalls[i].body.faces[0].vertices[0].z < -0.5) {
 				for(var j in levels[currLevel].bodies) {
 					if(levels[currLevel].bodies[j] == negativeBalls[i].body) {
 						levels[currLevel].bodies.splice(j, 1);
@@ -1269,7 +1494,7 @@ setInterval(function() {
 							found = true;
 						}
 
-						if(balls[i].velocity.z > 0 && balls[i].body.faces[j].vertices[k].z > 1) {
+						if(!enemyPaddle && balls[i].velocity.z > 0 && balls[i].body.faces[j].vertices[k].z > 1) {
 							playAudio(ballAudio, false);
 							balls[i].velocity.z = balls[i].velocity.z * -balls[i].restitution;
 							found = true;
@@ -1307,12 +1532,39 @@ setInterval(function() {
 					playState++;
 				} else if(score >= 52 && playState == 10) {
 					playState++;
-				} else if(score >= 69 && playState == 18) {
+				} else if(score >= 63 && playState == 18) {
+					playState++;
+				} else if(score >= 69 && playState == 20) {
+					playState++;
+				} else if(score >= 76 && playState == 24) {
 					playState++;
 				}
 			}
 
-			if(balls[i].velocity.z < 0 && balls[i].body.faces[0].vertices[0].z < -0.5) {
+			if(enemyPaddle && balls[i].velocity.z > 0 && checkCollision(balls[i].body, enemyPaddle)) {
+				playAudio(paddleAudio, false);
+				var enemyPaddleCenter = enemyPaddle.getCenter();
+				balls[i].velocity = {'x': -enemyPaddleCenter.x*(0.003 + Math.random()*0.002), 'y': -enemyPaddleCenter.y*0.02 + 0.011, 'z': -0.02 - enemyPaddlePower*enemyPaddlePowerIncrement};
+				enemyPaddlePower++;
+				if(Math.abs(balls[i].velocity.x) < 0.0005) {
+					balls[i].velocity.x += 0.01*Math.random() - 0.005;
+				}
+			}
+
+			if(enemyPaddle && balls[i].velocity.z > 0 && balls[i].body.getCenter().z > enemyPaddle.getCenter().z + 0.03) {
+				playAudio(winAudio);
+				score += 10;
+				for(var j in levels[currLevel].bodies) {
+					if(levels[currLevel].bodies[j] == balls[i].body) {
+						levels[currLevel].bodies.splice(j, 1);
+						break;
+					}
+				}
+
+				balls.splice(i, 1);
+
+				createBall(true);
+			} else if(balls[i].velocity.z < 0 && balls[i].body.faces[0].vertices[0].z < -0.5) {
 				for(var j in levels[currLevel].bodies) {
 					if(levels[currLevel].bodies[j] == balls[i].body) {
 						levels[currLevel].bodies.splice(j, 1);
@@ -1332,8 +1584,14 @@ setInterval(function() {
 		}
 
 		paddleRotationTarget = -((mouseX - canv.width/2)/(canv.width/2))*45;
-		paddle.rotate({'x': 0, 'y': 0, 'z': -(paddleRotation-paddleRotationTarget)*paddleRotationSpeed});
+		paddle.rotate({'x': 0, 'y': 0, 'z': -(paddleRotation-paddleRotationTarget)*paddleRotationSpeed}, paddle.getCenter());
 		paddleRotation += -(paddleRotation-paddleRotationTarget)*paddleRotationSpeed;
+
+		if(enemyPaddle) {
+			enemyPaddleRotationTarget = enemyPaddle.getCenter().x*45;
+			enemyPaddle.rotate({'x': 0, 'y': 0, 'z': -(enemyPaddleRotation-enemyPaddleRotationTarget)*enemyPaddleRotationSpeed}, enemyPaddle.getCenter());
+			enemyPaddleRotation += -(enemyPaddleRotation-enemyPaddleRotationTarget)*enemyPaddleRotationSpeed;
+		}
 
 		levelCam['aspectRatio'] = canv.height/canv.width;
 
