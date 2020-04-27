@@ -1604,7 +1604,7 @@ setInterval(function() {
 
 		levelCam['aspectRatio'] = canv.height/canv.width;
 
-		if(contains(inputs, 'w')) {
+		/*if(contains(inputs, 'w')) {
 			levelCam.translate(levelCam.look);
 		}
 		if(contains(inputs, 's')) {
@@ -1633,7 +1633,7 @@ setInterval(function() {
 		}
 		if(contains(inputs, 'right')) {
 			levelCam.rotate({'x': 0, 'y': -1, 'z': 0});
-		}
+		}*/
 	} else if(gameState < 0) {
 		paused = false;
 		if(menuState == 1 && drawnLines == 7) {
